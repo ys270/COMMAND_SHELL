@@ -1,0 +1,387 @@
+TO run ffosh, please first type in ./ffosh or valgrind ./ffosh
+
+=========================================================================
+
+then you would see ffosh print out: 
+
+           ffosh:/home/ys270/ece551/mp_miniproject$
+
+which means the user can now type in command into ffosh
+
+===========================================================================================================
+
+STEP 1:
+
+(1)RUN: empty command(\n)
+
+OUTPUT: ffosh:/home/ys270/ece551/mp_miniproject$
+
+REASON: This is correct because if a user only type in "ENTER" on the keyboard,
+        ffosh would print out a new line of prompt, waiting for the next command.
+
+(2)RUN: exit
+
+OUTPUT:（exit ffosh）<valgrind was clean>
+
+REASON: This is correct because if the user type in "exit",
+        ffosh has to return back to the terminal original shell.
+
+(3)RUN: (control+D)
+
+OUTPUT: process finish!(exit ffosh) <valgrind was clean>
+ 
+REASON: This is correct because if the user type (control+D),
+        this means the ffosh has to exit and return back to the terminal original shell.
+        I print "process finish" to distinguish this kind of exit with the user explicitly typed in exit.  
+
+(4)RUN: /bin/ls
+
+OUTPUT: print out a list of all files in the current directory
+	at the end of all files, there is another message: Program was successful
+	and another prompt appear on the screen to wait for the next command
+
+REASON: This is correct because we type in the full path to the command we want to run, the ffosh
+        will follow the full path to find the command to execute and the last line shows the exit
+	status was 0 when the child program exit.
+
+(5)RUN: /bin/pwd
+
+OUTPUT: /home/ys270/ece551/mp_miniproject
+        Program was successful
+	and another prompt appear on the screen to wait for the next command
+
+REASON: This is correct because pwd is used to get the current working directory
+
+(6)RUN: dog
+
+OUTPUT: Command dog not found
+        Program failed with code 1
+	and another prompt appear on the screen to wait for the next command
+	
+REASON: This is correct because the command dog is not in any path that ECE551 can
+        provide(which actually need some work in step 2), so we can not execute this command.
+
+=======================================================================================================
+
+STEP 2
+--------------------------------------------------------------------------------------------------------
+
+some test for searching path in ECE551PATH
+
+(1)RUN: ls
+
+OUTPUT: print out a list of all files in the current directory
+        at the end of all files, there is another message: Program was successful
+        and another prompt appear on the screen to wait for the next command
+
+REASON: The ffosh would search in ECE551PATH to find the corresponding command to execute. 
+        This result is correct.
+	
+(2)RUN:    ls
+
+OUTPUT: same as (1)
+
+REASON: The white space before the command would be omitted.
+        Actually, if the user type many white space after ls, the result would still be the same
+	becuase the last white spaces would also be omitted.
+        This result is correct.
+	
+(3)RUN: ls -l
+
+OUTPUT: Print out a list of specific details of all files in the current directory,
+        including the access, creater name, creating time, etc.
+
+REASON: The command is split into two parts: ls and -l.
+        When executing the command, it will take -l as the second argument.
+        This result is correct.
+	
+----------------------------------------------------------------------------------------------------------
+
+some test for echo(test for spliting command)
+
+my spliting logic: \\-->\, \"-->", \-->(nothing),
+                   The white space between ""(this do not count in the '"' after '\')
+                   would be remained, otherwise the white space is used to split the command into different arguments.
+		   A "" pair(do not include the'"' after '\') is always used to split the arguments when encountered. 
+	           The unclosed quotation mark would be an error and print the message: unclosed quotation
+	           The white spaces before the first argument would be omited,
+		   and the white spaces after the last argument would also be omited.
+	           The following test cases all obey these rules, so I do not write reason for most of them.
+
+(4)RUN: echo a
+
+OUTPUT: a
+        Program was successful
+
+(5)RUN: echo a b c
+
+OUTPUT: a b c
+        Program was successful
+   
+(6)RUN: echo a "hello world" b
+
+OUTPUT: a hello world b 
+        Program was successful
+
+(7)RUN: echo a"hello world"b
+
+OUTPUT: a hello world b
+        Program was successful
+
+(8)RUN: echo \
+
+OUTPUT: (white line)
+        Program was successful
+
+(9)RUN: echo \\
+
+OUTPUT: \
+        Program was successful
+
+(10)RUN: echo \"\\
+
+OUTPUT: "\
+        Program was successful
+
+(11)RUN: echo "\"hello world\""
+
+OUTPUT: "hello world"
+        Program was successful
+
+
+(12)RUN: echo "hello world
+
+OUTPUT: unclosed quotation
+
+(13)RUN: echo "a""b""c   d"
+
+OUTPUT:a b c   d
+       Program was successful
+
+(14)RUN: echo \hello \worl\d
+
+OUTPUT: hello world
+        Program was successful
+
+(16)RUN: echo "\""
+
+OUTPUT:"
+
+REASON:The '"' after the '\' is not count into the number of '"'s.
+       So this format is legal because it has closed quotation.
+       This result is correct.
+
+(17)RUN: echo "\"""
+
+OUTPUT: unclosed quotation
+
+REASON:except the '"' after '\', there are three '"',
+      which means the last '"' does not have another '"' to correspond to it.
+      So this should print the message:unclosed quotation. This result is correct.
+
+============================================================================================================
+
+STEP 3
+-------------------------------------------------------------------------------------------------------------
+some tests for cd command
+
+(1)RUN: cd ..
+
+OUTPUT: ffosh:/home/ys270/ece551$ 
+
+REASON: The argument '..' means going to the upper level directory of the current working directory.
+        The prompt will swith from <ffosh:/home/ys270/ece551/mp_miniproject$> to <ffosh:/home/ys270/ece551$>
+        This result is correct.
+
+(2)RUN: cd
+
+OUTPUT: ffosh:/home/ys270$
+
+REASON: 'cd' with no arguments means changing the directory back to home directory,
+        which is the same output when typing in 'cd' in termianl's shell.
+        This result is correct.
+
+(3)RUN: cd
+        cd ece551
+
+OUTPUT: ffosh:/home/ys270/ece551$
+
+REASON: After we go back to the home directory, we could go to the upper level of directory by typing its name.
+        This result is correct.
+------------------------------------------------------------------------------------------------------------------
+some tests for set, rev, export
+
+some speacial rules for set in my ffosh: the key's name followed by set should only contain letters, numbers or '_'.
+However, if the key name contain a single '\', according to my echo rule in step 2, I will not count in the single '\'.
+For example, (set a\a b) means (set aa b), so if you type (echo $aa), b will show up on screen. But if you type in
+(set a\\a b), I will know the user explicitly want a '\' in his key name, and this is ilegal, so a message "wrong key format!"
+will show up.
+
+Another notification for set is that if the user do not want white space in the value matched with the corresponding key,
+he should only type in one white space between the valid key name and the value.
+For example, if the user type <set message    ECE551 is hard!>, ffosh would think the user want all the white space between
+message and "ECE551 is hard". This make sense because some times people want white space in front of their values.
+
+The last rule for my ffosh' set is that user should always only type in one white space between set and the key name, and no
+white space before "set". If the input format did not reach this standard, a message will show up:
+"You should only type in one white space between set and key name,and no white space before set!"
+
+
+(4)RUN: set a
+
+OUTPUT: wrong input format! 
+
+REASON: set need to have at least 3 arguments,
+        and the string after the second white space will all become the value of the second argument.
+	This result is correct.
+
+(5)RUN: set a++ b
+
+OUTPUT: wrong key format!
+
+REASON: the variable name(key in the map) should only contain number or '_' or letters.
+        This result is correct.
+	
+(6)RUN: set a sl
+        rev a
+        $a
+
+OUTPUT: The same output for ls
+        This result is correct.
+
+REASON: We first set a to 'sl', then reverse a to make a=ls.
+        If we type $a on the command line, this means the same thing for ls.
+
+(7)RUN: set a c
+        set b d
+	$a$b
+
+OUTPUT: The same output for cd
+
+REASON: we set a to c, b to d.
+        If we type $a$b on the command line, this means the same thing for cd.
+        This result is correct.
+
+(8)RUN: set a hello world
+        echo $a!
+
+OUTPUT: hello world!
+        Program was successful
+
+REASON: If we set a to hello world, then echo $a!, the valid key name(including letters, numbers and '_')
+        would be converted to the value in map, the other characters will remain. This output is correct.
+        This result is correct.
+
+(9)RUN: set a , world!
+        echo hello$a
+
+OUTPUT: hello, world
+        Program was successful
+
+REASON: We set a to , world!, then echo hello$a, the characters before $ will remain the same,
+        and the valid key name will be converted to the corresponding value in map.
+        This result is correct.
+
+(10)RUN: env
+
+OUTPUT: This would print all original environment variables,
+        plus the new added environment variable ECE551PATH on the last line,
+        which now have the same value of PATH:
+         ECE551PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+
+REASON: I copy all the original environment variables into ffosh and add a new element called ECE551PATH into it,
+        which now have the same value of PATH(if we haven't change it).
+	This result is correct.
+	(Note that I did not use the extern claim for my environment variables, so in my ffosh,
+	./ffosh will not success and terminated by signal 6, this make senese since this is considered
+	a strange behavior by me. Things like ./a.out(I write a a.cpp to test) would success as normal.)
+
+(11)RUN: set another_path Drew Rabih Eric
+         export another_path
+	 env
+
+OUTPUT: This would add a new path namde another_path into the environment variable,
+        and this newly added variable will appear on the last line, right under ECE551PATH:
+                                     another_path=Drew Rabih Eric
+
+REASON: If we set a key named another_path to Drew Rabih Eric, and then export it, the newly added variable should
+        show up when we type in command env.
+	This result is correct.
+    
+(12)RUN: export
+
+OUTPUT: wrong input format!
+
+REASON: Export should take 2 arguments and the second argument should be a valid key name.
+        If the user type in a different number of arguments, ffosh should warn the user the input format is wrong.
+        So this result is correct.
+ 
+(13)RUN: export nothing
+
+OUTPUT: key not find!
+
+REASON: Because we never set the key "nothing" to any value before, we can't find this key in our map,
+        there is no element to export in the map, and the output should warn the user this key does not exist.
+        This result is correct.
+	
+(14)RUN: rev
+
+OUTPUT: wrong input format!
+
+REASON: Rev should take two arguments, the second argument should be a valid key name.
+        If the user type in a different number of arguments, ffosh should warn the user the input format is wrong.
+        So this result is correct.
+    
+(15)RUN: rev nothing
+
+OUTPUT: key not find!
+
+REASON: Because we never set the key "nothing" to any value before, we can't find this key in our map,
+        there is no element to reverse in the map, and the output should warn the user this key does not exist.
+        This result is right.
+	
+(16)RUN: set _Ta thank you very much
+         echo $_Ta
+
+OUTPUT:  thank you very much
+         Program was successful
+
+REASON:  _Ta is a valid key name, after we set it and then echo it,
+         this "thank you very much" will show up.
+	 This result is correct.
+
+(17)RUN: set 123 456
+         echo $123
+OUTPUT: 456
+        Program was successful
+
+REASON: 123 is a valid key name, after we set it and then echo it,
+        the "123" will be converted into "456".
+	This result is correct.
+
+(18)RUN: set ECE551PATH a
+         export ECE551PATH
+         ls
+
+OUTPUT: Command ls not found
+	Program failed with code 1
+
+REASON: Set ECE551PATH to something meaningless(like a) and then export it will change the current environment path.
+        So if we type in ls, the command can't be executed. This result is correct.
+
+(19):RUN: set ECE551PATH usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+          export ECE551PATH
+          ls
+
+OUTPUT: ls will success as usual.
+
+REASON: Set ECE551PATH back to the value of path and then export it will change the current environment path.
+        So now we can type in ls, and this command can be executed. This result is correct.
+
+(20)RUN: set    a d
+
+OUTPUT: You should only type in one white space between set and key name,and no white space before set!
+
+REASON: This is right according to my rules for set(as I have mentioned above),
+there should only be one white space between set and the key_name, if the user type the wrong format, the
+shell should inform the user this error.
